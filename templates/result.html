@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>IP数据包分析结果</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .filter-container {
+            background-color: #f5f5f5;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .filter-container label {
+            margin-right: 10px;
+        }
+        .filter-container select, .filter-container input {
+            margin-right: 20px;
+            padding: 5px;
+        }
+        button {
+            padding: 5px 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .packet-container {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .hidden {
+            display: none;
+        }
+        .proto-count {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+        .section-toggle {
+            cursor: pointer;
+            color: #0066cc;
+        }
+        .section-content {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>IP数据包分析结果</h1>
+
+    <!-- 筛选容器 -->
+    <div class="filter-container">
+        <h2>筛选条件</h2>
+        <div>
+            <label for="proto-filter">协议类型:</label>
+            <select id="proto-filter">
+                <option value="all">全部</option>
+                {% for proto in protocol_count.keys() %}
+                <option value="{{ proto }}">{{ proto }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="src-filter">源IP:</label>
+            <input type="text" id="src-filter" placeholder="输入源IP地址">
+
+            <label for="dst-filter">目标IP:</label>
+            <input type="text" id="dst-filter" placeholder="输入目标IP地址">
+
+            <button onclick="applyFilters()">应用筛选</button>
+            <button onclick="resetFilters()">重置</button>
+        </div>
+
+        <div style="margin-top: 15px;">
+            <h3>显示选项</h3>
+            <label><input type="checkbox" id="show-ip" checked> IP层信息</label>
+            <label><input type="checkbox" id="show-transport" checked> 传输层信息</label>
+            <label><input type="checkbox" id="show-raw" checked> 原始数据</label>
+            <button onclick="applyDisplayOptions()">应用显示选项</button>
+        </div>
+    </div>
+
+    <!-- 协议统计信息 -->
+    <div class="proto-count">
+        <h2 class="section-toggle" onclick="toggleSection('proto-count-content')">
+            各IP协议数据数量 <span id="proto-count-icon">▼</span>
+        </h2>
+        <div id="proto-count-content" class="section-content">
+            <ul>
+                {% for proto, count in protocol_count.items() %}
+                <li>协议 {{ proto }}: {{ count }} 个</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- 数据包列表 -->
+    <h2>IP数据包内容</h2>
+    <div id="packet-count">显示 <span id="visible-packets">0</span> / {{ packet_info|length }} 个数据包</div>
+    <div id="packets-container">
+        {% for packet in packet_info %}
+        <div class="packet-container" data-proto="{{ packet.proto }}" data-src="{{ packet.src_ip }}" data-dst="{{ packet.dst_ip }}">
+            <h3>IP数据包 #{{ loop.index }}</h3>
+            <div class="ip-section">
+                <h4 class="section-toggle" onclick="toggleSection('ip-{{ loop.index }}')">
+                    IP层信息 <span id="ip-icon-{{ loop.index }}">▼</span>
+                </h4>
+                <div id="ip-{{ loop.index }}" class="section-content">
+                    <p>数据包序号: {{ packet.packet_num }}</p>
+                    <p>捕获时间: {{ packet.capture_time }}</p>
+                    <p>源IP地址: {{ packet.src_ip }}</p>
+                    <p>目标IP地址: {{ packet.dst_ip }}</p>
+                    <p>IP协议版本: {{ packet.ip_version }}</p>
+                    <p>IP头部长度: {{ packet.ihl }} 字节</p>
+                    <p>服务类型: {{ packet.tos }}</p>
+                    <p>总长度: {{ packet.total_len }} 字节</p>
+                    <p>标识: {{ packet.id }}</p>
+                    <p>标志: {{ packet.flags }}</p>
+                    <p>分片偏移: {{ packet.frag }}</p>
+                    <p>生存时间(TTL): {{ packet.ttl }}</p>
+                    <p>上层协议: {{ packet.proto }}</p>
+                </div>
+            </div>
+
+            {% if packet.tcp_info %}
+            <div class="transport-section">
+                <h4 class="section-toggle" onclick="toggleSection('tcp-{{ loop.index }}')">
+                    TCP层信息 <span id="tcp-icon-{{ loop.index }}">▼</span>
+                </h4>
+                <div id="tcp-{{ loop.index }}" class="section-content">
+                    <p>源端口: {{ packet.tcp_info.sport }}</p>
+                    <p>目标端口: {{ packet.tcp_info.dport }}</p>
+                    <p>序列号: {{ packet.tcp_info.seq }}</p>
+                    <p>确认号: {{ packet.tcp_info.ack }}</p>
+                    <p>数据偏移: {{ packet.tcp_info.dataofs }}</p>
+                    <p>标志位: {{ packet.tcp_info.flags }}</p>
+                    <p>窗口大小: {{ packet.tcp_info.window }}</p>
+                </div>
+            </div>
+            {% elif packet.udp_info %}
+            <div class="transport-section">
+                <h4 class="section-toggle" onclick="toggleSection('udp-{{ loop.index }}')">
+                    UDP层信息 <span id="udp-icon-{{ loop.index }}">▼</span>
+                </h4>
+                <div id="udp-{{ loop.index }}" class="section-content">
+                    <p>源端口: {{ packet.udp_info.sport }}</p>
+                    <p>目标端口: {{ packet.udp_info.dport }}</p>
+                    <p>长度: {{ packet.udp_info.len }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if packet.raw_data %}
+            <div class="raw-section">
+                <h4 class="section-toggle" onclick="toggleSection('raw-{{ loop.index }}')">
+                    应用层原始数据 (十六进制) <span id="raw-icon-{{ loop.index }}">▼</span>
+                </h4>
+                <div id="raw-{{ loop.index }}" class="section-content">
+                    <pre>{{ packet.raw_data }}</pre>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        // 初始化 - 默认展开所有部分
+        document.addEventListener('DOMContentLoaded', function() {
+            updateVisiblePacketCount();
+        });
+
+        // 应用筛选条件
+        function applyFilters() {
+            const protoFilter = document.getElementById('proto-filter').value;
+            const srcFilter = document.getElementById('src-filter').value.toLowerCase();
+            const dstFilter = document.getElementById('dst-filter').value.toLowerCase();
+            const packets = document.querySelectorAll('.packet-container');
+
+            let visibleCount = 0;
+
+            packets.forEach(packet => {
+                const packetProto = packet.getAttribute('data-proto');
+                const packetSrc = packet.getAttribute('data-src').toLowerCase();
+                const packetDst = packet.getAttribute('data-dst').toLowerCase();
+
+                let match = true;
+
+                // 协议筛选
+                if (protoFilter !== 'all' && packetProto !== protoFilter) {
+                    match = false;
+                }
+
+                // 源IP筛选
+                if (srcFilter && !packetSrc.includes(srcFilter)) {
+                    match = false;
+                }
+
+                // 目标IP筛选
+                if (dstFilter && !packetDst.includes(dstFilter)) {
+                    match = false;
+                }
+
+                if (match) {
+                    packet.classList.remove('hidden');
+                    visibleCount++;
+                } else {
+                    packet.classList.add('hidden');
+                }
+            });
+
+            updateVisiblePacketCount(visibleCount);
+        }
+
+        // 重置筛选条件
+        function resetFilters() {
+            document.getElementById('proto-filter').value = 'all';
+            document.getElementById('src-filter').value = '';
+            document.getElementById('dst-filter').value = '';
+            document.querySelectorAll('.packet-container').forEach(packet => {
+                packet.classList.remove('hidden');
+            });
+            updateVisiblePacketCount();
+        }
+
+        // 应用显示选项
+        function applyDisplayOptions() {
+            const showIP = document.getElementById('show-ip').checked;
+            const showTransport = document.getElementById('show-transport').checked;
+            const showRaw = document.getElementById('show-raw').checked;
+
+            document.querySelectorAll('.ip-section').forEach(section => {
+                section.style.display = showIP ? 'block' : 'none';
+            });
+
+            document.querySelectorAll('.transport-section').forEach(section => {
+                section.style.display = showTransport ? 'block' : 'none';
+            });
+
+            document.querySelectorAll('.raw-section').forEach(section => {
+                section.style.display = showRaw ? 'block' : 'none';
+            });
+        }
+
+        // 更新可见数据包计数
+        function updateVisiblePacketCount(count = null) {
+            if (count === null) {
+                count = document.querySelectorAll('.packet-container:not(.hidden)').length;
+            }
+            document.getElementById('visible-packets').textContent = count;
+        }
+
+        // 切换部分展开/折叠
+        function toggleSection(sectionId) {
+            const section = document.getElementById(sectionId);
+            const icon = document.getElementById(sectionId + '-icon');
+
+            if (section.style.display === 'none') {
+                section.style.display = 'block';
+                if (icon) icon.textContent = '▼';
+            } else {
+                section.style.display = 'none';
+                if (icon) icon.textContent = '►';
+            }
+        }
+    </script>
+</body>
+
+</html>

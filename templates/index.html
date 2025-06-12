@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IP数据包分析工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+
+    <!-- Tailwind CSS 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#0FC6C2',
+                        accent: '#722ED1',
+                        dark: '#1D2129',
+                        light: '#F2F3F5'
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .bg-gradient-blue {
+                background: linear-gradient(135deg, #165DFF 0%, #0FC6C2 100%);
+            }
+            .bg-grid {
+                background-image:
+                    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+                background-size: 20px 20px;
+            }
+            .card-hover {
+                transition: all 0.3s ease;
+            }
+            .card-hover:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            }
+            .text-shadow {
+                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            }
+            .btn-pulse {
+                animation: pulse 2s infinite;
+            }
+            @keyframes pulse {
+                0% {
+                    box-shadow: 0 0 0 0 rgba(22, 93, 255, 0.4);
+                }
+                70% {
+                    box-shadow: 0 0 0 10px rgba(22, 93, 255, 0);
+                }
+                100% {
+                    box-shadow: 0 0 0 0 rgba(22, 93, 255, 0);
+                }
+            }
+        }
+    </style>
+</head>
+<body class="font-inter bg-light text-dark min-h-screen flex flex-col">
+    <!-- 导航栏 -->
+    <nav class="bg-white/90 backdrop-blur-sm shadow-sm sticky top-0 z-50 transition-all duration-300">
+        <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-wifi text-primary text-2xl"></i>
+                <span class="text-xl font-bold text-dark">PacketAnalyzer</span>
+            </div>
+            <div class="hidden md:flex items-center space-x-6">
+                <a href="#" class="text-dark/80 hover:text-primary transition-colors">主页</a>
+                <a href="#" class="text-dark/80 hover:text-primary transition-colors">功能</a>
+                <a href="#" class="text-dark/80 hover:text-primary transition-colors">关于</a>
+                <a href="#" class="text-dark/80 hover:text-primary transition-colors">帮助</a>
+            </div>
+            <div class="md:hidden">
+                <button id="menu-toggle" class="text-dark hover:text-primary">
+                    <i class="fa fa-bars text-xl"></i>
+                </button>
+            </div>
+        </div>
+        <!-- 移动端菜单 -->
+        <div id="mobile-menu" class="hidden bg-white border-t md:hidden">
+            <div class="container mx-auto px-4 py-3 space-y-3">
+                <a href="#" class="block py-2 text-dark/80 hover:text-primary transition-colors">主页</a>
+                <a href="#" class="block py-2 text-dark/80 hover:text-primary transition-colors">功能</a>
+                <a href="#" class="block py-2 text-dark/80 hover:text-primary transition-colors">关于</a>
+                <a href="#" class="block py-2 text-dark/80 hover:text-primary transition-colors">帮助</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 英雄区域 -->
+    <section class="bg-gradient-blue bg-grid relative overflow-hidden py-20 md:py-32">
+        <div class="absolute inset-0 opacity-10">
+            <div class="absolute top-0 left-0 w-full h-full bg-[url('https://picsum.photos/id/180/1600/800')] bg-cover bg-center"></div>
+        </div>
+        <div class="container mx-auto px-4 relative z-10">
+            <div class="max-w-3xl mx-auto text-center">
+                <h1 class="text-[clamp(2rem,5vw,3.5rem)] font-bold text-white leading-tight mb-6 text-shadow">
+                    强大的IP数据包分析工具
+                </h1>
+                <p class="text-[clamp(1rem,2vw,1.25rem)] text-white/90 mb-10">
+                    上传PCAP文件，获取详细的IP数据包分析结果，支持协议筛选和数据可视化
+                </p>
+                <div class="flex flex-col sm:flex-row justify-center gap-4">
+                    <a href="#upload-section" class="bg-white text-primary px-8 py-3 rounded-lg font-semibold shadow-lg btn-pulse hover:shadow-xl transition-all transform hover:-translate-y-1">
+                        开始分析 <i class="fa fa-arrow-right ml-2"></i>
+                    </a>
+                    <a href="#features" class="bg-transparent border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white/10 transition-all transform hover:-translate-y-1">
+                        了解更多 <i class="fa fa-info-circle ml-2"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+        <!-- 波浪装饰 -->
+        <div class="absolute bottom-0 left-0 w-full">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 120" class="w-full h-auto">
+                <path fill="#F2F3F5" fill-opacity="1" d="M0,96L60,85.3C120,75,240,53,360,53.3C480,53,600,75,720,80C840,85,960,75,1080,69.3C1200,64,1320,64,1380,64L1440,64L1440,120L1380,120C1320,120,1200,120,1080,120C960,120,840,120,720,120C600,120,480,120,360,120C240,120,120,120,60,120L0,120Z"></path>
+            </svg>
+        </div>
+    </section>
+
+    <!-- 功能特性 -->
+    <section id="features" class="py-16 md:py-24">
+        <div class="container mx-auto px-4">
+            <div class="text-center mb-16">
+                <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold text-dark mb-4">强大功能</h2>
+                <p class="text-dark/70 max-w-2xl mx-auto">我们的IP数据包分析工具提供全面的网络流量分析功能，帮助您深入了解网络通信</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- 功能卡片1 -->
+                <div class="bg-white rounded-xl shadow-lg p-8 card-hover">
+                    <div class="w-14 h-14 bg-primary/10 rounded-lg flex items-center justify-center mb-6">
+                        <i class="fa fa-filter text-primary text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">协议筛选</h3>
+                    <p class="text-dark/70">根据不同的IP协议类型筛选数据包，快速定位特定协议的通信内容</p>
+                </div>
+
+                <!-- 功能卡片2 -->
+                <div class="bg-white rounded-xl shadow-lg p-8 card-hover">
+                    <div class="w-14 h-14 bg-secondary/10 rounded-lg flex items-center justify-center mb-6">
+                        <i class="fa fa-list-alt text-secondary text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">详细分析</h3>
+                    <p class="text-dark/70">查看每个IP数据包的详细信息，包括源IP、目标IP、协议类型、端口号等关键信息</p>
+                </div>
+
+                <!-- 功能卡片3 -->
+                <div class="bg-white rounded-xl shadow-lg p-8 card-hover">
+                    <div class="w-14 h-14 bg-accent/10 rounded-lg flex items-center justify-center mb-6">
+                        <i class="fa fa-bar-chart text-accent text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">统计数据</h3>
+                    <p class="text-dark/70">获取各IP协议数据数量的统计信息，直观了解网络流量分布情况</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 上传区域 -->
+    <section id="upload-section" class="py-16 md:py-24 bg-light">
+        <div class="container mx-auto px-4">
+            <div class="max-w-3xl mx-auto">
+                <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+                    <div class="p-8 md:p-12">
+                        <div class="text-center mb-8">
+                            <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark mb-3">上传PCAP文件</h2>
+                            <p class="text-dark/70">选择您的PCAP文件进行分析，支持标准的.pcap格式</p>
+                        </div>
+
+                        <form method="post" enctype="multipart/form-data" class="space-y-6">
+                            <!-- 文件上传区域 -->
+                            <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-primary transition-colors cursor-pointer">
+                                <input type="file" name="pcap_file" id="file-input" class="hidden">
+                                <label for="file-input" class="cursor-pointer">
+                                    <i class="fa fa-cloud-upload text-primary text-4xl mb-4"></i>
+                                    <h3 class="text-lg font-semibold mb-2">拖放文件到此处或点击上传</h3>
+                                    <p class="text-dark/60 mb-4">支持的文件格式: .pcap</p>
+                                    <div id="file-name" class="text-primary font-medium hidden"></div>
+                                </label>
+                            </div>
+
+                            <!-- 上传按钮 -->
+                            <button type="submit" class="w-full bg-primary text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:bg-primary/90 transition-all transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                上传并分析 <i class="fa fa-rocket ml-2"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 常见问题 -->
+    <section class="py-16 md:py-24">
+        <div class="container mx-auto px-4">
+            <div class="text-center mb-16">
+                <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold text-dark mb-4">常见问题</h2>
+                <p class="text-dark/70 max-w-2xl mx-auto">关于我们IP数据包分析工具的常见问题解答</p>
+            </div>
+
+            <div class="max-w-3xl mx-auto">
+                <!-- FAQ项目 -->
+                <div class="mb-6">
+                    <button class="faq-toggle w-full flex justify-between items-center bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all">
+                        <span class="font-semibold text-left">什么是PCAP文件？</span>
+                        <i class="fa fa-chevron-down text-primary transition-transform"></i>
+                    </button>
+                    <div class="faq-content hidden bg-white mt-2 p-6 rounded-xl shadow-sm">
+                        <p class="text-dark/70">PCAP (Packet Capture) 文件是一种网络数据包捕获格式，包含网络通信中的原始数据包数据。通常由网络分析工具如Wireshark、tcpdump等生成。</p>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <button class="faq-toggle w-full flex justify-between items-center bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all">
+                        <span class="font-semibold text-left">如何获取PCAP文件？</span>
+                        <i class="fa fa-chevron-down text-primary transition-transform"></i>
+                    </button>
+                    <div class="faq-content hidden bg-white mt-2 p-6 rounded-xl shadow-sm">
+                        <p class="text-dark/70">您可以使用网络分析工具如Wireshark、tcpdump等捕获网络流量并保存为PCAP文件。这些工具通常需要管理员权限才能运行。</p>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <button class="faq-toggle w-full flex justify-between items-center bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all">
+                        <span class="font-semibold text-left">分析结果能保存吗？</span>
+                        <i class="fa fa-chevron-down text-primary transition-transform"></i>
+                    </button>
+                    <div class="faq-content hidden bg-white mt-2 p-6 rounded-xl shadow-sm">
+                        <p class="text-dark/70">目前分析结果仅在当前会话中可见，您可以使用浏览器的打印功能或将页面保存为PDF文件以保留分析结果。</p>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <button class="faq-toggle w-full flex justify-between items-center bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all">
+                        <span class="font-semibold text-left">支持多大的PCAP文件？</span>
+                        <i class="fa fa-chevron-down text-primary transition-transform"></i>
+                    </button>
+                    <div class="faq-content hidden bg-white mt-2 p-6 rounded-xl shadow-sm">
+                        <p class="text-dark/70">我们的系统支持分析中小型PCAP文件。对于特别大的文件(超过100MB)，分析可能需要较长时间或遇到性能限制。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 页脚 -->
+    <footer class="bg-dark text-white/80 py-12">
+        <div class="container mx-auto px-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div>
+                    <div class="flex items-center space-x-2 mb-4">
+                        <i class="fa fa-wifi text-primary text-2xl"></i>
+                        <span class="text-xl font-bold text-white">PacketAnalyzer</span>
+                    </div>
+                    <p class="mb-4">强大的IP数据包分析工具，帮助您深入了解网络通信</p>
+                    <div class="flex space-x-4">
+                        <a href="#" class="text-white/60 hover:text-primary transition-colors">
+                            <i class="fa fa-github text-xl"></i>
+                        </a>
+                        <a href="#" class="text-white/60 hover:text-primary transition-colors">
+                            <i class="fa fa-twitter text-xl"></i>
+                        </a>
+                        <a href="#" class="text-white/60 hover:text-primary transition-colors">
+                            <i class="fa fa-linkedin text-xl"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-semibold mb-4 text-white">快速链接</h3>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="hover:text-primary transition-colors">主页</a></li>
+                        <li><a href="#features" class="hover:text-primary transition-colors">功能</a></li>
+                        <li><a href="#" class="hover:text-primary transition-colors">文档</a></li>
+                        <li><a href="#" class="hover:text-primary transition-colors">关于我们</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-semibold mb-4 text-white">联系我们</h3>
+                    <ul class="space-y-2">
+                        <li class="flex items-center">
+                            <i class="fa fa-envelope-o mr-2 text-primary"></i>
+                            <span>contact@packetanalyzer.com</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fa fa-phone mr-2 text-primary"></i>
+                            <span>+1 (123) 456-7890</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="border-t border-white/10 mt-8 pt-8 text-center text-white/60">
+                <p>&copy; 2023 PacketAnalyzer. 保留所有权利。</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        // 移动端菜单切换
+        document.getElementById('menu-toggle').addEventListener('click', function() {
+            const mobileMenu = document.getElementById('mobile-menu');
+            mobileMenu.classList.toggle('hidden');
+        });
+
+        // 文件上传预览
+        document.getElementById('file-input').addEventListener('change', function() {
+            const fileName = this.files[0] ? this.files[0].name : '';
+            const fileElement = document.getElementById('file-name');
+
+            if (fileName) {
+                fileElement.textContent = fileName;
+                fileElement.classList.remove('hidden');
+            } else {
+                fileElement.classList.add('hidden');
+            }
+        });
+
+        // FAQ 切换
+        document.querySelectorAll('.faq-toggle').forEach(toggle => {
+            toggle.addEventListener('click', function() {
+                const content = this.nextElementSibling;
+                const icon = this.querySelector('i');
+
+                content.classList.toggle('hidden');
+                icon.classList.toggle('rotate-180');
+            });
+        });
+
+        // 导航栏滚动效果
+        window.addEventListener('scroll', function() {
+            const nav = document.querySelector('nav');
+            if (window.scrollY > 50) {
+                nav.classList.add('py-2', 'shadow-md');
+                nav.classList.remove('py-3', 'shadow-sm');
+            } else {
+                nav.classList.add('py-3', 'shadow-sm');
+                nav.classList.remove('py-2', 'shadow-md');
+            }
+        });
+
+        // 平滑滚动
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+
+                const targetId = this.getAttribute('href');
+                if (targetId === '#') return;
+
+                const targetElement = document.querySelector(targetId);
+                if (targetElement) {
+                    window.scrollTo({
+                        top: targetElement.offsetTop - 80,
+                        behavior: 'smooth'
+                    });
+
+                    // 关闭移动菜单
+                    document.getElementById('mobile-menu').classList.add('hidden');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
